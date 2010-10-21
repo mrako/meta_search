@@ -12,7 +12,8 @@ module MetaSearch
   DEFAULT_WHERES = [
     ['equals', 'eq', {:validator => Proc.new {|param| !param.blank? || (param == false)}}],
     ['does_not_equal', 'ne', 'not_eq', {:types => ALL_TYPES, :predicate => :not_eq}],
-    ['contains', 'like', 'matches', {:types => STRINGS, :predicate => :matches, :formatter => '"%#{param}%"'}],
+    ['contains', {:types => STRINGS, :predicate => :matches, :formatter => '"%#{param}%"'}],
+    ['like', 'matches', {:types => STRINGS, :predicate => :matches, :formatter => '"#{param}"'}],
     ['does_not_contain', 'nlike', 'not_matches', {:types => STRINGS, :predicate => :not_matches, :formatter => '"%#{param}%"'}],
     ['starts_with', 'sw', {:types => STRINGS, :predicate => :matches, :formatter => '"#{param}%"'}],
     ['does_not_start_with', 'dnsw', {:types => STRINGS, :predicate => :not_matches, :formatter => '"%#{param}%"'}],
