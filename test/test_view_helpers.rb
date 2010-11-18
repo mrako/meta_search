@@ -32,6 +32,39 @@ class TestViewHelpers < ActionView::TestCase
     @controller = @controller.new
   end
 
+  context "A search against Company and a search against Developer" do
+    setup do
+      @s1 = Company.search
+      @s2 = Developer.search
+      form_for @s1 do |f|
+        @f1 = f
+      end
+
+      form_for @s2 do |f|
+        @f2 = f
+      end
+    end
+
+    should "use the default localization for predicates" do
+      assert_match /Name isn't null/, @f1.label(:name_is_not_null)
+    end
+
+    context "in the Flanders locale" do
+      setup do
+        I18n.locale = :flanders
+      end
+
+      teardown do
+        I18n.locale = nil
+      end
+
+      should "localize according to their bases" do
+        assert_match /Company name-diddly contains-diddly/, @f1.label(:name_contains)
+        assert_match /Developer name-diddly contains-aroonie/, @f2.label(:name_like)
+      end
+    end
+  end
+
   context "A previously-filled search form" do
     setup do
       @s = Company.search
@@ -197,6 +230,80 @@ class TestViewHelpers < ActionView::TestCase
     should "not generate a sort link with an up arrow for a non-sorted column" do
       assert_no_match /Created at &#9650;/,
                       @f.sort_link(:created_at, :controller => 'companies')
+    end
+
+    context "and a localization" do
+      setup do
+        I18n.locale = :es
+      end
+
+      teardown do
+        I18n.locale = nil
+      end
+
+      should "use the localized name for the attribute" do
+        assert_match /Nombre/,
+                     @f.sort_link(:name, :controller => 'companies')
+      end
+    end
+  end
+
+  context "A developer search form sorted by a custom sort method" do
+    setup do
+      @s = Developer.search
+      @s.meta_sort = 'salary_and_name.asc'
+      form_for @s do |f|
+        @f = f
+      end
+    end
+
+    should "generate a sort link with humanized text" do
+      assert_match /Salary and name &#9650;/,
+                   @f.sort_link(:salary_and_name, :controller => 'developers')
+    end
+
+    should "sort results as expected" do
+      assert_equal Developer.order('salary ASC, name ASC'),
+                   @s.all
+    end
+  end
+
+  context "A developer search form sorted by multiple columns" do
+    setup do
+      @s = Developer.search
+      @s.meta_sort = 'name_and_salary.asc'
+      form_for @s do |f|
+        @f = f
+      end
+    end
+
+    should "generate a sort link with humanized text" do
+      assert_match /Name and salary &#9650;/,
+                   @f.sort_link(:name_and_salary, :controller => 'developers')
+    end
+
+    should "order by both columns in the order they were specified" do
+      assert_match /ORDER BY "developers"."name" ASC, "developers"."salary" ASC/,
+                   @s.to_sql
+    end
+
+    should "return expected results" do
+      assert_equal Developer.order('name ASC, salary ASC').all,
+                   @s.all
+    end
+  end
+
+  context "A company search form with an alternate search_key" do
+    setup do
+      @s = Company.search({}, :search_key => 'searchy_mcsearchhead')
+      form_for @s do |f|
+        @f = f
+      end
+    end
+
+    should "generate a sort link that places meta_sort param under the specified key" do
+      assert_match /searchy_mcsearchhead/,
+                   @f.sort_link(:name, :controller => 'companies')
     end
   end
 

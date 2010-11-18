@@ -80,6 +80,12 @@ class TestSearch < Test::Unit::TestCase
         end
       end
 
+      should "raise an error when MAX_JOIN_DEPTH is exceeded" do
+        assert_raise MetaSearch::JoinDepthError do
+          @s.developers_company_developers_company_developers_name_equals = "Ernie Miller"
+        end
+      end
+
       context "sorted by name in ascending order" do
         setup do
           @s.meta_sort = 'name.asc'
@@ -211,18 +217,6 @@ class TestSearch < Test::Unit::TestCase
         end
       end
 
-      context "with a join more than five tables deep (including source table)" do
-        setup do
-          @s.developers_company_developers_company_developers_name_equals = "Ernie Miller"
-        end
-
-        should "raise an error when the relation is accessed" do
-          assert_raise MetaSearch::JoinDepthError do
-            @s.all
-          end
-        end
-      end
-
       context "where backwards name is hcetinI" do
         setup do
           @s.backwards_name = 'hcetinI'
@@ -294,6 +288,17 @@ class TestSearch < Test::Unit::TestCase
 
         should "sort by company name in descending order" do
           assert_equal Developer.joins(:company).order('companies.name desc').all,
+                       @s.all
+        end
+      end
+
+      context "sorted by salary and name in descending order" do
+        setup do
+          @s.meta_sort = 'salary_and_name.desc'
+        end
+
+        should "sort by salary and name in descending order" do
+          assert_equal Developer.order('salary DESC, name DESC').all,
                        @s.all
         end
       end
