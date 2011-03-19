@@ -17,19 +17,7 @@ class TestViewHelpers < ActionView::TestCase
   include router.url_helpers
 
   def setup
-    @controller = Class.new do
-
-      attr_reader :url_for_options
-      def url_for(options)
-        @url_for_options = options
-        "http://www.example.com"
-      end
-
-      def _routes
-        @routes ||= ActionDispatch::Routing::RouteSet.new
-      end
-    end
-    @controller = @controller.new
+    @controller = ActionView::TestCase::TestController.new
   end
 
   context "A search against Company and a search against Developer" do
@@ -60,7 +48,12 @@ class TestViewHelpers < ActionView::TestCase
 
       should "localize according to their bases" do
         assert_match /Company name-diddly contains-diddly/, @f1.label(:name_contains)
+        assert_match /Company reverse name-diddly/, @f1.label(:reverse_name)
         assert_match /Developer name-diddly contains-aroonie/, @f2.label(:name_like)
+      end
+
+      should "localize more than one attribute when joined with or" do
+        assert_match /Developer name-diddly or-diddly Developer salary-doodly equals-diddly/, @f2.label(:name_or_salary_eq)
       end
     end
   end

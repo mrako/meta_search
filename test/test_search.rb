@@ -2,6 +2,78 @@ require 'helper'
 
 class TestSearch < Test::Unit::TestCase
 
+  context "A Company search where options[:user] = 'blocked'" do
+    setup do
+      @s = Company.search({}, :user => 'blocked')
+    end
+
+    should "not respond_to? a search against backwards_name" do
+      assert !@s.respond_to?(:backwards_name), "The search responded to :backwards_name"
+    end
+
+    should "raise an error if we try to search on backwards_name" do
+      assert_raise NoMethodError do
+        @s.backwards_name = 'blah'
+      end
+    end
+
+    should "not respond_to? a search against updated_at_eq" do
+      assert !@s.respond_to?(:updated_at_eq), "The search responded to :updated_at_eq"
+    end
+
+    should "raise an error if we try to search on updated_at" do
+      assert_raise NoMethodError do
+        @s.updated_at_eq = 'blah'
+      end
+    end
+
+    should "not respond_to? a search against notes_note_matches" do
+      assert !@s.respond_to?(:notes_note_matches), "The search responded to :notes_note_matches"
+    end
+
+    should "raise an error if we try to search on notes_note_matches" do
+      assert_raise NoMethodError do
+        @s.notes_note_matches = '%blah%'
+      end
+    end
+  end
+
+  context "A Developer search where options[:user] = 'privileged'" do
+    setup do
+      @s = Developer.search({}, :user => 'privileged')
+    end
+
+    should "respond_to? a search against name_eq" do
+      assert_respond_to @s, :name_eq
+    end
+
+    should "not raise an error on a search against name_eq" do
+      assert_nothing_raised do
+        @s.name_eq = 'blah'
+      end
+    end
+
+    should "respond_to? a search against company_name_eq" do
+      assert_respond_to @s, :company_name_eq
+    end
+
+    should "not raise an error on a search against name_eq" do
+      assert_nothing_raised do
+        @s.company_name_eq = 'blah'
+      end
+    end
+
+    should "respond_to? a search against company_updated_at_eq" do
+      assert_respond_to @s, :company_updated_at_eq
+    end
+
+    should "not raise an error on a search against company_updated_at_eq" do
+      assert_nothing_raised do
+        @s.company_updated_at_eq = Time.now
+      end
+    end
+  end
+
   [{:name => 'Company', :object => Company},
    {:name => 'Company as a Relation', :object => Company.scoped}].each do |object|
     context_a_search_against object[:name], object[:object] do
@@ -86,31 +158,57 @@ class TestSearch < Test::Unit::TestCase
         end
       end
 
-      context "sorted by name in ascending order" do
+      context "when meta_sort value is empty string" do
         setup do
-          @s.meta_sort = 'name.asc'
+          @s.meta_sort = ''
         end
 
-        should "sort by name in ascending order" do
-          assert_equal Company.order('name asc').all,
-                       @s.all
+        should "not raise an error, just ignore sorting" do
+          assert_nothing_raised do
+            assert_equal Company.all, @s.all
+          end
         end
       end
 
-      context "sorted by name in descending order" do
-        setup do
-          @s.meta_sort = 'name.desc'
-        end
+      should "sort by name in ascending order" do
+        @s.meta_sort = 'name.asc'
+        assert_equal Company.order('name asc').all,
+                     @s.all
+      end
 
-        should "sort by name in descending order" do
-          assert_equal Company.order('name desc').all,
-                       @s.all
-        end
+      should "sort by name in ascending order as a method call" do
+        @s.meta_sort 'name.asc'
+        assert_equal Company.order('name asc').all,
+                     @s.all
+      end
+
+      should "sort by name in descending order" do
+        @s.meta_sort = 'name.desc'
+        assert_equal Company.order('name desc').all,
+                     @s.all
       end
 
       context "where name contains optical" do
         setup do
           @s.name_contains = 'optical'
+        end
+
+        should "return one result" do
+          assert_equal 1, @s.all.size
+        end
+
+        should "return a company named Advanced Optical Solutions" do
+          assert_contains @s.all, Company.where(:name => 'Advanced Optical Solutions').first
+        end
+
+        should "not return a company named Initech" do
+          assert_does_not_contain @s.all, Company.where(:name => "Initech").first
+        end
+      end
+
+      context "where name contains optical as a method call" do
+        setup do
+          @s.name_contains 'optical'
         end
 
         should "return one result" do
@@ -214,6 +312,20 @@ class TestSearch < Test::Unit::TestCase
 
         should "not return a company named Mission Data" do
           assert_does_not_contain @s.all, Company.where(:name => "Mission Data").first
+        end
+      end
+
+      context "where backwards name is hcetinI as a method call" do
+        setup do
+          @s.backwards_name 'hcetinI'
+        end
+
+        should "return 1 result" do
+          assert_equal 1, @s.all.size
+        end
+
+        should "return a company named Initech" do
+          assert_contains @s.all, Company.where(:name => 'Initech').first
         end
       end
 

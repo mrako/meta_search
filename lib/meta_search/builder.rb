@@ -22,38 +22,28 @@ module MetaSearch
     include ModelCompatibility
     include Utility
 
-    attr_reader :base, :relation, :search_key, :search_attributes, :join_dependency, :errors
+    attr_reader :base, :relation, :search_key, :search_attributes, :join_dependency, :errors, :options
     delegate *RELATION_METHODS + [:to => :relation]
 
     # Initialize a new Builder. Requires a base model to wrap, and supports a couple of options
     # for how it will expose this model and its associations to your controllers/views.
     def initialize(base_or_relation, opts = {})
+      opts = opts.dup
       @relation = base_or_relation.scoped
       @base = @relation.klass
-      @search_key = opts[:search_key] ? opts[:search_key].to_s : 'search'
+      @search_key = (opts.delete(:search_key) || 'search').to_s
+      @options = opts  # Let's just hang on to other options for use in authorization blocks
       @join_dependency = build_join_dependency
       @search_attributes = {}
       @errors = ActiveModel::Errors.new(self)
     end
 
     def get_column(column, base = @base)
-      base.columns_hash[column.to_s] unless base_excludes_attribute(base, column)
-    end
-
-    def base_excludes_attribute(base, column)
-      base._metasearch_include_attributes.blank? ?
-        base._metasearch_exclude_attributes.include?(column.to_s) :
-        !base._metasearch_include_attributes.include?(column.to_s)
+      base.columns_hash[column.to_s] if base._metasearch_attribute_authorized?(column, self)
     end
 
     def get_association(assoc, base = @base)
-      base.reflect_on_association(assoc.to_sym) unless base_excludes_association(base, assoc)
-    end
-
-    def base_excludes_association(base, assoc)
-      base._metasearch_include_associations.blank? ?
-        base._metasearch_exclude_associations.include?(assoc.to_s) :
-        !base._metasearch_include_associations.include?(assoc.to_s)
+      base.reflect_on_association(assoc.to_sym) if base._metasearch_association_authorized?(assoc, self)
     end
 
     def get_attribute(name, parent = @join_dependency.join_base)
@@ -134,16 +124,16 @@ module MetaSearch
     def method_missing(method_id, *args, &block)
       method_name = method_id.to_s
       if method_name =~ /^meta_sort=?$/
-        method_name =~ /=$/ ? set_sort(args.first) : get_sort
+        (args.any? || method_name =~ /=$/) ? set_sort(args.first) : get_sort
       elsif match = method_name.match(/^(.*)\(([0-9]+).*\)$/) # Multiparameter reader
         method_name, index = match.captures
         vals = self.send(method_name)
         vals.is_a?(Array) ? vals[index.to_i - 1] : nil
       elsif match = matches_named_method(method_name)
-        method_name =~ /=$/ ? set_named_method_value(match, args.first) : get_named_method_value(match)
+        (args.any? || method_name =~ /=$/) ? set_named_method_value(match, args.first) : get_named_method_value(match)
       elsif match = matches_attribute_method(method_id)
         attribute, predicate = match.captures
-        method_name =~ /=$/ ? set_attribute_method_value(attribute, predicate, args.first) : get_attribute_method_value(attribute, predicate)
+         (args.any? || method_name =~ /=$/) ? set_attribute_method_value(attribute, predicate, args.first) : get_attribute_method_value(attribute, predicate)
       else
         super
       end
@@ -151,7 +141,7 @@ module MetaSearch
 
     def matches_named_method(name)
       method_name = name.to_s.sub(/\=$/, '')
-      return method_name if @base._metasearch_methods.has_key?(method_name)
+      return method_name if @base._metasearch_method_authorized?(method_name, self)
     end
 
     def matches_attribute_method(method_id)
@@ -172,6 +162,7 @@ module MetaSearch
     end
 
     def set_sort(val)
+      return if val.blank?
       column, direction = val.split('.')
       direction ||= 'asc'
       if ['asc','desc'].include?(direction)
@@ -199,7 +190,7 @@ module MetaSearch
     end
 
     def set_named_method_value(name, val)
-      meth = @base._metasearch_methods[name]
+      meth = @base._metasearch_methods[name][:method]
       search_attributes[name] = meth.cast_param(val)
       if meth.validate(search_attributes[name])
         return_value = meth.evaluate(@relation, search_attributes[name])

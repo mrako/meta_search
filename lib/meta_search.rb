@@ -27,15 +27,21 @@ module MetaSearch
     ['not_in', 'ni', 'not_in', {:types => ALL_TYPES, :predicate => :not_in}],
     ['is_true', {:types => BOOLEANS, :skip_compounds => true}],
     ['is_false', {:types => BOOLEANS, :skip_compounds => true, :formatter => Proc.new {|param| !param}}],
-    ['is_present', {:types => (NUMBERS + STRINGS), :predicate => :not_eq_all, :skip_compounds => true, :cast => :boolean, :formatter => Proc.new {|param| [nil, '']}}],
-    ['is_blank', {:types => (NUMBERS + STRINGS), :predicate => :eq_any, :skip_compounds => true, :cast => :boolean, :formatter => Proc.new {|param| [nil, '']}}],
+    ['is_present', {:types => (ALL_TYPES - BOOLEANS), :predicate => :not_eq_all, :skip_compounds => true, :cast => :boolean, :formatter => Proc.new {|param| [nil, '']}}],
+    ['is_blank', {:types => (ALL_TYPES - BOOLEANS), :predicate => :eq_any, :skip_compounds => true, :cast => :boolean, :formatter => Proc.new {|param| [nil, '']}}],
     ['is_null', {:types => ALL_TYPES, :skip_compounds => true, :cast => :boolean, :formatter => Proc.new {|param| nil}}],
     ['is_not_null', {:types => ALL_TYPES, :predicate => :not_eq, :skip_compounds => true, :cast => :boolean, :formatter => Proc.new {|param| nil}}]
   ]
 
-  RELATION_METHODS = [:joins, :includes, :select, :order, :where, :having,
-                      :to_a, :all, :count, :length, :size, :to_sql, :debug_sql, :paginate,
-                      :find_each, :first, :last, :each, :arel]
+  RELATION_METHODS = [
+    # Query construction
+    :joins, :includes, :select, :order, :where, :having, :group,
+    # Results, debug, array methods
+    :to_a, :all, :length, :size, :to_sql, :debug_sql, :paginate, :page,
+    :find_each, :first, :last, :each, :arel, :in_groups_of, :group_by,
+    # Calculations
+    :count, :average, :minimum, :maximum, :sum
+  ]
 end
 
 require 'active_record'
